@@ -1,0 +1,45 @@
+[Unit]
+Description=CachyPac - Gestionnaire de mises à jour Pacman
+Documentation=https://github.com/leyoda/CachyPac
+After=network.target network-online.target
+Wants=network-online.target
+RequiresMountsFor=/var/lib/cachypac
+
+[Service]
+Type=simple
+User=cachypac
+Group=cachypac
+ExecStart=/usr/bin/cachypac --daemon
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=10
+TimeoutStopSec=30
+
+# Sécurité
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/cachypac /var/log/cachypac
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RestrictNamespaces=true
+
+# Répertoires de travail
+WorkingDirectory=/var/lib/cachypac
+StateDirectory=cachypac
+LogsDirectory=cachypac
+ConfigurationDirectory=cachypac
+
+# Variables d'environnement
+Environment=RUST_LOG=cachypac=info
+Environment=CACHYPAC_CONFIG_DIR=/etc/cachypac
+Environment=CACHYPAC_DATA_DIR=/var/lib/cachypac
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,83 @@
+# Configuration CachyRust avec Intelligence Artificielle
+# Copiez ce fichier vers ~/.config/cachy-rust/config.toml et adaptez selon vos besoins
+
+[scheduler]
+enabled = true
+update_time = "02:00"
+timezone = "Europe/Paris"
+
+[system]
+auto_reboot = false
+reboot_delay_minutes = 5
+max_history_entries = 100
+check_updates_on_startup = true
+run_as_service = false
+service_auto_start = false
+
+[telegram]
+enabled = false
+bot_token = ""
+chat_id = ""
+send_success = true
+send_errors = true
+send_start = true
+send_reboot = true
+
+[gui]
+theme = "auto"
+window_width = 1000
+window_height = 700
+auto_refresh_interval = 300
+
+# ===== NOUVELLE SECTION : INTELLIGENCE ARTIFICIELLE =====
+[intelligence]
+# Active/désactive l'intelligence artificielle
+enabled = true
+
+# Active l'apprentissage automatique à partir de l'historique
+learning_enabled = true
+
+# Active la prédiction de redémarrage basée sur les paquets
+reboot_prediction_enabled = true
+
+# Active l'optimisation des fenêtres de maintenance
+schedule_optimization_enabled = true
+
+# Active la détection d'anomalies post-mise à jour
+anomaly_detection_enabled = true
+
+# Nombre minimum d'entrées d'historique pour commencer l'apprentissage
+min_history_entries = 10
+
+# ===== FONCTIONNALITÉS INTELLIGENTES =====
+# 
+# 1. PRÉDICTION DE REDÉMARRAGE
+#    - Analyse les paquets à mettre à jour
+#    - Prédit la probabilité qu'un redémarrage soit nécessaire
+#    - Identifie les paquets critiques (kernel, systemd, drivers)
+#
+# 2. OPTIMISATION DES FENÊTRES DE MAINTENANCE
+#    - Analyse les patterns d'utilisation système
+#    - Recommande les meilleurs moments pour les mises à jour
+#    - Estime la durée des opérations
+#
+# 3. DÉTECTION D'ANOMALIES
+#    - Surveille les performances post-mise à jour
+#    - Détecte les comportements anormaux
+#    - Propose des actions correctives
+#
+# 4. APPRENTISSAGE ADAPTATIF
+#    - Apprend des patterns spécifiques à votre système
+#    - Améliore les prédictions au fil du temps
+#    - S'adapte à vos habitudes d'utilisation
+
+# ===== EXEMPLES D'UTILISATION =====
+#
+# Pour tester l'intelligence artificielle :
+# cargo run --example intelligence_demo
+#
+# Pour utiliser l'IA en mode CLI :
+# cachy-rust --update --intelligent
+#
+# L'IA sera automatiquement utilisée dans l'interface graphique
+# si elle est activée dans cette configuration.

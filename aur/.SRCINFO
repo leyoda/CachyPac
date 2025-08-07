@@ -1,0 +1,21 @@
+pkgbase = cachypac
+	pkgdesc = Application Rust moderne pour automatiser les mises à jour Pacman avec interface graphique
+	pkgver = 0.1.0
+	pkgrel = 1
+	url = https://github.com/leyoda/CachyPac
+	arch = x86_64
+	arch = aarch64
+	license = Apache-2.0
+	makedepends = rust
+	makedepends = cargo
+	makedepends = git
+	depends = pacman
+	depends = systemd
+	optdepends = telegram-desktop: Pour configurer les notifications Telegram
+	optdepends = cronie: Pour la planification avancée des tâches
+	provides = cachypac
+	conflicts = cachypac-git
+	source = cachypac-0.1.0.tar.gz::https://github.com/leyoda/CachyPac/archive/v0.1.0.tar.gz
+	sha256sums = SKIP
+
+pkgname = cachypac

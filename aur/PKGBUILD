@@ -1,0 +1,81 @@
+# Maintainer: leyoda <leyoda@example.com>
+pkgname=cachypac
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Application Rust moderne pour automatiser les mises à jour Pacman avec interface graphique"
+arch=('x86_64' 'aarch64')
+url="https://github.com/leyoda/CachyPac"
+license=('Apache-2.0')
+depends=('pacman' 'systemd')
+makedepends=('rust' 'cargo' 'git')
+optdepends=(
+    'telegram-desktop: Pour configurer les notifications Telegram'
+    'cronie: Pour la planification avancée des tâches'
+)
+provides=('cachypac')
+conflicts=('cachypac-git')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/leyoda/CachyPac/archive/v$pkgver.tar.gz")
+sha256sums=('SKIP')  # À mettre à jour lors de la release
+
+prepare() {
+    cd "$srcdir/CachyPac-$pkgver"
+    
+    # Vérifier que Cargo.lock existe ou le créer
+    if [ ! -f Cargo.lock ]; then
+        cargo generate-lockfile
+    fi
+}
+
+build() {
+    cd "$srcdir/CachyPac-$pkgver"
+    
+    # Configuration des variables d'environnement pour la compilation
+    export RUSTUP_TOOLCHAIN=stable
+    export CARGO_TARGET_DIR=target
+    
+    # Compilation en mode release avec optimisations
+    cargo build --release --locked --all-features
+}
+
+check() {
+    cd "$srcdir/CachyPac-$pkgver"
+    
+    # Exécuter les tests unitaires et d'intégration
+    cargo test --release --locked
+}
+
+package() {
+    cd "$srcdir/CachyPac-$pkgver"
+    
+    # Installation du binaire principal
+    install -Dm755 target/release/cachypac "$pkgdir/usr/bin/cachypac"
+    
+    # Installation des fichiers de configuration
+    install -Dm644 config.toml.example "$pkgdir/etc/cachypac/config.toml"
+    
+    # Installation du fichier desktop
+    install -Dm644 cachypac.desktop "$pkgdir/usr/share/applications/cachypac.desktop"
+    
+    # Installation de la documentation
+    install -Dm644 README.md "$pkgdir/usr/share/doc/cachypac/README.md"
+    install -Dm644 docs/quick_start.md "$pkgdir/usr/share/doc/cachypac/quick_start.md"
+    install -Dm644 docs/user_guide.md "$pkgdir/usr/share/doc/cachypac/user_guide.md"
+    install -Dm644 docs/api_documentation.md "$pkgdir/usr/share/doc/cachypac/api_documentation.md"
+    install -Dm644 docs/performance_optimizations.md "$pkgdir/usr/share/doc/cachypac/performance_optimizations.md"
+    
+    # Installation de la licence
+    install -Dm644 LICENSE "$pkgdir/usr/share/licenses/cachypac/LICENSE"
+    
+    # Installation du service systemd
+    install -Dm644 systemd/cachypac.service "$pkgdir/usr/lib/systemd/system/cachypac.service"
+    
+    # Installation des exemples
+    install -Dm644 examples/simple_intelligence.rs "$pkgdir/usr/share/doc/cachypac/examples/simple_intelligence.rs"
+    
+    # Création des répertoires de données
+    install -dm755 "$pkgdir/var/lib/cachypac"
+    install -dm755 "$pkgdir/var/log/cachypac"
+    
+    # Installation des scripts post-installation
+    install -Dm755 scripts/post-install.sh "$pkgdir/usr/share/cachypac/post-install.sh"
+}

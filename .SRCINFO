@@ -1,0 +1,27 @@
+pkgbase = cachy-rust
+	pkgdesc = Modern Pacman update manager with GUI - Gestionnaire de mises à jour Pacman moderne avec interface graphique
+	pkgver = 0.1.0
+	pkgrel = 1
+	url = https://github.com/cachyos/cachy-rust
+	arch = x86_64
+	license = MIT
+	makedepends = rust
+	makedepends = cargo
+	makedepends = git
+	makedepends = imagemagick
+	depends = pacman
+	depends = sudo
+	depends = gtk3
+	depends = cairo
+	depends = pango
+	depends = gdk-pixbuf2
+	depends = glib2
+	optdepends = telegram-desktop: For Telegram notifications setup
+	optdepends = systemd: For system service integration
+	provides = cachy-rust
+	conflicts = cachy-rust-git
+	backup = etc/cachy-rust/config.toml
+	source = cachy-rust-0.1.0.tar.gz::https://github.com/cachyos/cachy-rust/archive/v0.1.0.tar.gz
+	sha256sums = SKIP
+
+pkgname = cachy-rust

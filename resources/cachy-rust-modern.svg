@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Gradient principal bleu-vert -->
+    <linearGradient id="mainGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1E90FF;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#00BFFF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#00FF7F;stop-opacity:1" />
+    </linearGradient>
+    
+    <!-- Gradient pour l'effet de profondeur -->
+    <linearGradient id="depthGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4169E1;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#00CED1;stop-opacity:1" />
+    </linearGradient>
+    
+    <!-- Gradient pour la flèche -->
+    <linearGradient id="arrowGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#F0FFFF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#E0FFFF;stop-opacity:0.9" />
+    </linearGradient>
+    
+    <!-- Ombre portée -->
+    <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="8" flood-color="#2C3E50" flood-opacity="0.3" stdDeviation="12"/>
+    </filter>
+    
+    <!-- Effet de brillance -->
+    <filter id="shine" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge> 
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <!-- Fond avec ombre -->
+  <rect x="64" y="64" width="384" height="384" rx="96" ry="96" 
+        fill="url(#mainGradient)" 
+        filter="url(#shadow)" />
+  
+  <!-- Couche de profondeur -->
+  <rect x="72" y="72" width="368" height="368" rx="88" ry="88" 
+        fill="url(#depthGradient)" 
+        opacity="0.6" />
+  
+  <!-- Effet de brillance sur le bord supérieur -->
+  <rect x="72" y="72" width="368" height="100" rx="88" ry="88" 
+        fill="url(#arrowGradient)" 
+        opacity="0.3" />
+  
+  <!-- Flèche principale vers le haut (symbole de mise à jour) -->
+  <g transform="translate(256,256)">
+    <!-- Corps de la flèche -->
+    <path d="M -40,-80 L -40,-20 L -80,-20 L 0,60 L 80,-20 L 40,-20 L 40,-80 Z" 
+          fill="url(#arrowGradient)" 
+          filter="url(#shine)" />
+    
+    <!-- Contour de la flèche pour plus de définition -->
+    <path d="M -40,-80 L -40,-20 L -80,-20 L 0,60 L 80,-20 L 40,-20 L 40,-80 Z" 
+          fill="none" 
+          stroke="#FFFFFF" 
+          stroke-width="2" 
+          opacity="0.5" />
+  </g>
+  
+  <!-- Petits éléments décoratifs (points de mise à jour) -->
+  <circle cx="180" cy="180" r="8" fill="#FFFFFF" opacity="0.4" />
+  <circle cx="332" cy="180" r="6" fill="#FFFFFF" opacity="0.3" />
+  <circle cx="180" cy="332" r="6" fill="#FFFFFF" opacity="0.3" />
+  <circle cx="332" cy="332" r="8" fill="#FFFFFF" opacity="0.4" />
+  
+  <!-- Effet de reflet sur toute l'icône -->
+  <rect x="64" y="64" width="384" height="192" rx="96" ry="96" 
+        fill="url(#arrowGradient)" 
+        opacity="0.15" />
+</svg>

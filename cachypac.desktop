@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=CachyPac
+Comment=Gestionnaire de mises à jour Pacman avec interface graphique moderne
+Exec=/usr/local/bin/cachypac
+Icon=cachypac
+Terminal=false
+Type=Application
+Categories=System;Settings;PackageManager;
+Keywords=pacman;update;system;arch;cachy;pac;rust;
+StartupNotify=true

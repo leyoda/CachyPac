@@ -1,0 +1,32 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=CachyRust
+Name[fr]=CachyRust
+Comment=Modern Pacman update manager with GUI
+Comment[fr]=Gestionnaire de mises à jour Pacman moderne avec interface graphique
+GenericName=Update Manager
+GenericName[fr]=Gestionnaire de mises à jour
+Exec=/usr/local/bin/cachy-rust
+Icon=cachy-rust
+Terminal=false
+NoDisplay=false
+Categories=System;Settings;PackageManager;
+Keywords=pacman;update;arch;system;maintenance;
+Keywords[fr]=pacman;mise à jour;arch;système;maintenance;
+StartupNotify=true
+StartupWMClass=cachy-rust
+MimeType=
+Actions=
+
+[Desktop Action Settings]
+Name=Settings
+Name[fr]=Paramètres
+Exec=/usr/local/bin/cachy-rust --config
+Icon=cachy-rust
+
+[Desktop Action Manual]
+Name=Manual Update
+Name[fr]=Mise à jour manuelle
+Exec=/usr/local/bin/cachy-rust --update
+Icon=cachy-rust

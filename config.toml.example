@@ -1,0 +1,60 @@
+# Configuration exemple pour CachyPac
+# Copiez ce fichier vers ~/.config/cachypac/config.toml et modifiez selon vos besoins
+
+[general]
+data_dir = "~/.local/share/cachypac"
+log_level = "info"
+check_interval = 60  # minutes
+auto_update = false
+backup_before_update = true
+
+[pacman]
+timeout = 300  # secondes
+retry_count = 3
+retry_delay = 5  # secondes
+exclude_packages = []  # Exemple: ["linux", "nvidia-dkms"]
+include_aur = false
+clean_cache_after = true
+check_keyring = true
+
+[scheduler]
+enabled = false
+cron_expression = "0 2 * * *"  # Tous les jours à 2h du matin
+maintenance_window_start = "02:00"
+maintenance_window_end = "06:00"
+max_concurrent_jobs = 1
+
+[telegram]
+enabled = false
+bot_token = ""  # Token de votre bot Telegram
+chat_id = ""    # Votre Chat ID Telegram
+notify_on_updates = true
+notify_on_errors = true
+notify_on_success = true
+message_format = "html"
+
+[gui]
+theme = "dark"  # "dark" ou "light"
+window_width = 1000
+window_height = 700
+auto_start_minimized = false
+show_system_tray = true
+close_to_tray = true
+
+[performance]
+profile = "balanced"  # conservative, balanced, aggressive
+
+[performance.io]
+buffer_size = 8192
+flush_interval = 5000  # ms
+compression_level = 6
+
+[performance.network]
+connection_pool_size = 10
+request_timeout = 30000  # ms
+cache_ttl = 300  # seconds
+
+[performance.memory]
+max_cache_size = "100MB"
+gc_interval = 60000  # ms
+lazy_loading = true

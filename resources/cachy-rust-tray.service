@@ -1,0 +1,26 @@
+[Unit]
+Description=CachyRust System Tray Indicator
+Documentation=https://github.com/leyoda/CachyRust
+After=graphical-session.target
+Wants=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/cachy-rust --tray
+Restart=on-failure
+RestartSec=5
+Environment=DISPLAY=:0
+Environment=XDG_RUNTIME_DIR=/run/user/%i
+Environment=QT_QPA_PLATFORM=wayland;xcb
+
+# Sécurité
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/%i/.config/cachy-rust
+ReadWritePaths=/home/%i/.local/share/cachy-rust
+
+[Install]
+WantedBy=graphical-session.target

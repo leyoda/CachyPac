@@ -1,0 +1,69 @@
+[package]
+name = "cachypac"
+version = "0.1.0"
+edition = "2021"
+authors = ["leyoda <leyoda@example.com>"]
+description = "CachyPac - Application Rust moderne pour automatiser les mises à jour pacman avec interface graphique"
+license = "Apache-2.0"
+
+[[example]]
+name = "simple_intelligence"
+path = "examples/simple_intelligence.rs"
+
+[[example]]
+name = "telegram_diagnostic"
+path = "examples/telegram_diagnostic.rs"
+
+[dependencies]
+# CLI
+clap = { version = "4.0", features = ["derive"] }
+
+# Interface graphique avec Iced
+iced = { version = "0.12", features = ["tokio", "debug", "canvas", "image", "svg"] }
+iced_aw = "0.9"
+
+# Configuration
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+
+# Scheduling et cron
+tokio = { version = "1.0", features = ["full"] }
+tokio-cron-scheduler = "0.10"
+cron = "0.12"
+chrono = { version = "0.4", features = ["serde"] }
+
+# Telegram API
+teloxide = { version = "0.12", features = ["macros"] }
+reqwest = { version = "0.11", features = ["json"] }
+
+# Système et processus
+sysinfo = "0.30"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Utilitaires
+anyhow = "1.0"
+thiserror = "1.0"
+uuid = { version = "1.0", features = ["v4", "serde"] }
+dirs = "5.0"
+regex = "1.10"
+image = "0.24"
+num_cpus = "1.16"
+
+# Internationalisation
+sys-locale = "0.3"
+
+# Sécurité et chiffrement
+ring = "0.17"
+base64 = "0.22"
+
+[dev-dependencies]
+tokio-test = "0.4"
+tempfile = "3.0"
+
+[[bin]]
+name = "cachypac"
+path = "src/main.rs"

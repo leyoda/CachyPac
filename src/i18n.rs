@@ -1,12 +1,14 @@
 //! Module d'internationalisation pour CachyPac
-//! 
-//! Ce module gère la localisation de l'application de manière simple et efficace
-//! en évitant les problèmes de thread safety avec FluentBundle.
+//!
+//! Ce module gère la localisation de l'application avec support complet des fichiers Fluent (.ftl)
+//! et fallback vers les traductions intégrées pour assurer la compatibilité.
 
 use anyhow::Result;
+use fluent::{FluentBundle, FluentResource};
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex, OnceLock};
+use std::fs;
 use sys_locale::get_locale;
+use unic_langid::LanguageIdentifier;
 
 /// Langues supportées par CachyPac
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -87,11 +89,13 @@ impl SupportedLanguage {
     }
 }
 
-/// Gestionnaire d'internationalisation simplifié
+/// Gestionnaire d'internationalisation avec support Fluent
 pub struct I18nManager {
-    translations: HashMap<SupportedLanguage, HashMap<String, String>>,
+    fluent_bundles: HashMap<SupportedLanguage, FluentBundle<FluentResource>>,
+    embedded_translations: HashMap<SupportedLanguage, HashMap<String, String>>,
     current_language: SupportedLanguage,
     fallback_language: SupportedLanguage,
+    use_fluent: bool,
 }
 
 impl std::fmt::Debug for I18nManager {
@@ -99,7 +103,9 @@ impl std::fmt::Debug for I18nManager {
         f.debug_struct("I18nManager")
             .field("current_language", &self.current_language)
             .field("fallback_language", &self.fallback_language)
-            .field("available_languages", &self.translations.keys().collect::<Vec<_>>())
+            .field("use_fluent", &self.use_fluent)
+            .field("fluent_bundles", &self.fluent_bundles.keys().collect::<Vec<_>>())
+            .field("embedded_translations", &self.embedded_translations.keys().collect::<Vec<_>>())
             .finish()
     }
 }
@@ -108,9 +114,11 @@ impl I18nManager {
     /// Crée une nouvelle instance du gestionnaire I18n
     pub fn new() -> Result<Self> {
         let mut manager = Self {
-            translations: HashMap::new(),
+            fluent_bundles: HashMap::new(),
+            embedded_translations: HashMap::new(),
             current_language: SupportedLanguage::French, // Par défaut
             fallback_language: SupportedLanguage::English,
+            use_fluent: false,
         };
 
         // Charger toutes les langues supportées
@@ -124,28 +132,62 @@ impl I18nManager {
 
     /// Charge toutes les langues supportées
     fn load_all_languages(&mut self) -> Result<()> {
-        tracing::warn!("⚠️ DIAGNOSTIC I18N: Chargement des langues...");
-        tracing::warn!("⚠️ DIAGNOSTIC I18N: Les fichiers .ftl dans locales/ NE SONT PAS utilisés!");
-        tracing::warn!("⚠️ DIAGNOSTIC I18N: Utilisation de traductions codées en dur uniquement");
+        tracing::info!("🌍 Chargement des langues...");
         
+        // Essayer de charger les fichiers Fluent d'abord
+        let mut fluent_loaded = 0;
         for language in SupportedLanguage::all() {
-            if let Err(e) = self.load_language(&language) {
-                tracing::warn!("Impossible de charger la langue {:?}: {}", language, e);
-                // Continuer avec les autres langues
+            if let Ok(()) = self.load_fluent_language(&language) {
+                fluent_loaded += 1;
+            }
+            
+            // Charger aussi les traductions intégrées comme fallback
+            if let Err(e) = self.load_embedded_language(&language) {
+                tracing::warn!("Impossible de charger les traductions intégrées pour {:?}: {}", language, e);
             }
         }
+        
+        if fluent_loaded > 0 {
+            self.use_fluent = true;
+            tracing::info!("✅ Fichiers Fluent chargés avec succès ({} langues)", fluent_loaded);
+        } else {
+            tracing::info!("📝 Utilisation des traductions intégrées (fichiers .ftl non trouvés)");
+        }
+        
         Ok(())
     }
 
-    /// Charge une langue spécifique
-    fn load_language(&mut self, language: &SupportedLanguage) -> Result<()> {
-        // DIAGNOSTIC: Les fichiers Fluent existent mais ne sont pas chargés
+    /// Charge une langue spécifique depuis les fichiers Fluent
+    fn load_fluent_language(&mut self, language: &SupportedLanguage) -> Result<()> {
         let ftl_path = format!("locales/{}.ftl", language.code());
-        tracing::debug!("⚠️ DIAGNOSTIC I18N: Fichier {} existe mais NON chargé", ftl_path);
         
-        // Charger les traductions depuis les ressources intégrées
+        match fs::read_to_string(&ftl_path) {
+            Ok(content) => {
+                let resource = FluentResource::try_new(content)
+                    .map_err(|e| anyhow::anyhow!("Erreur de parsing Fluent pour {}: {:?}", ftl_path, e))?;
+                
+                let lang_id: LanguageIdentifier = language.code().parse()
+                    .map_err(|e| anyhow::anyhow!("ID de langue invalide {}: {}", language.code(), e))?;
+                
+                let mut bundle = FluentBundle::new(vec![lang_id]);
+                bundle.add_resource(resource)
+                    .map_err(|e| anyhow::anyhow!("Erreur d'ajout de ressource Fluent: {:?}", e))?;
+                
+                self.fluent_bundles.insert(language.clone(), bundle);
+                tracing::debug!("✅ Fichier Fluent chargé: {}", ftl_path);
+                Ok(())
+            }
+            Err(e) => {
+                tracing::debug!("📁 Fichier Fluent non trouvé: {} ({})", ftl_path, e);
+                Err(anyhow::anyhow!("Fichier non trouvé: {}", ftl_path))
+            }
+        }
+    }
+
+    /// Charge une langue spécifique depuis les traductions intégrées
+    fn load_embedded_language(&mut self, language: &SupportedLanguage) -> Result<()> {
         let translations = self.get_embedded_translations(language);
-        self.translations.insert(language.clone(), translations);
+        self.embedded_translations.insert(language.clone(), translations);
         Ok(())
     }
 
@@ -240,9 +282,15 @@ impl I18nManager {
         if let Some(locale) = get_locale() {
             let language_code = locale.split('_').next().unwrap_or("en");
             if let Some(language) = SupportedLanguage::from_code(language_code) {
-                if self.translations.contains_key(&language) {
+                let has_language = if self.use_fluent {
+                    self.fluent_bundles.contains_key(&language)
+                } else {
+                    self.embedded_translations.contains_key(&language)
+                };
+                
+                if has_language {
                     self.current_language = language;
-                    tracing::info!("Langue détectée: {:?}", self.current_language);
+                    tracing::info!("🌍 Langue détectée: {:?}", self.current_language);
                 }
             }
         }
@@ -251,9 +299,15 @@ impl I18nManager {
     /// Change la langue courante
     #[allow(dead_code)]
     pub fn set_language(&mut self, language: SupportedLanguage) -> Result<()> {
-        if self.translations.contains_key(&language) {
+        let has_language = if self.use_fluent {
+            self.fluent_bundles.contains_key(&language)
+        } else {
+            self.embedded_translations.contains_key(&language)
+        };
+        
+        if has_language {
             self.current_language = language;
-            tracing::info!("Langue changée vers: {:?}", self.current_language);
+            tracing::info!("🌍 Langue changée vers: {:?}", self.current_language);
             Ok(())
         } else {
             Err(anyhow::anyhow!("Langue non supportée: {:?}", language))
@@ -268,22 +322,63 @@ impl I18nManager {
 
     /// Traduit un message
     pub fn translate(&self, key: &str) -> String {
+        if self.use_fluent {
+            self.translate_fluent(key)
+        } else {
+            self.translate_embedded(key)
+        }
+    }
+    
+    /// Traduit un message avec Fluent
+    fn translate_fluent(&self, key: &str) -> String {
         // Essayer avec la langue courante
-        if let Some(translations) = self.translations.get(&self.current_language) {
+        if let Some(bundle) = self.fluent_bundles.get(&self.current_language) {
+            if let Some(msg) = bundle.get_message(key) {
+                if let Some(pattern) = msg.value() {
+                    let mut errors = vec![];
+                    let result = bundle.format_pattern(pattern, None, &mut errors);
+                    if errors.is_empty() {
+                        return result.to_string();
+                    }
+                }
+            }
+        }
+        
+        // Fallback vers la langue de secours
+        if let Some(bundle) = self.fluent_bundles.get(&self.fallback_language) {
+            if let Some(msg) = bundle.get_message(key) {
+                if let Some(pattern) = msg.value() {
+                    let mut errors = vec![];
+                    let result = bundle.format_pattern(pattern, None, &mut errors);
+                    if errors.is_empty() {
+                        return result.to_string();
+                    }
+                }
+            }
+        }
+        
+        // Fallback final vers les traductions intégrées
+        self.translate_embedded(key)
+    }
+    
+    /// Traduit un message avec les traductions intégrées
+    fn translate_embedded(&self, key: &str) -> String {
+        // Essayer avec la langue courante
+        if let Some(translations) = self.embedded_translations.get(&self.current_language) {
             if let Some(translation) = translations.get(key) {
                 return translation.clone();
             }
         }
         
         // Fallback vers la langue de secours
-        if let Some(translations) = self.translations.get(&self.fallback_language) {
+        if let Some(translations) = self.embedded_translations.get(&self.fallback_language) {
             if let Some(translation) = translations.get(key) {
                 return translation.clone();
             }
         }
         
         // Si aucune traduction trouvée, retourner la clé
-        tracing::warn!("Traduction manquante pour la clé: {}", key);
+        tracing::debug!("Traduction manquante pour la clé: {}", key);
         format!("[{}]", key)
     }
 
@@ -295,13 +390,27 @@ impl I18nManager {
     /// Retourne toutes les langues disponibles
     #[allow(dead_code)]
     pub fn available_languages(&self) -> Vec<&SupportedLanguage> {
-        self.translations.keys().collect()
+        if self.use_fluent {
+            self.fluent_bundles.keys().collect()
+        } else {
+            self.embedded_translations.keys().collect()
+        }
     }
 
     /// Vérifie si une langue est disponible
     #[allow(dead_code)]
     pub fn is_language_available(&self, language: &SupportedLanguage) -> bool {
-        self.translations.contains_key(language)
+        if self.use_fluent {
+            self.fluent_bundles.contains_key(language)
+        } else {
+            self.embedded_translations.contains_key(language)
+        }
+    }
+    
+    /// Retourne si le système utilise Fluent
+    #[allow(dead_code)]
+    pub fn is_using_fluent(&self) -> bool {
+        self.use_fluent
     }
 }
 
@@ -311,38 +420,42 @@ impl Default for I18nManager {
             tracing::error!("Impossible d'initialiser I18nManager: {}", e);
             // Créer une instance minimale en cas d'erreur
             Self {
-                translations: HashMap::new(),
+                fluent_bundles: HashMap::new(),
+                embedded_translations: HashMap::new(),
                 current_language: SupportedLanguage::French,
                 fallback_language: SupportedLanguage::English,
+                use_fluent: false,
             }
         })
     }
 }
 
-/// Instance globale du gestionnaire I18n (thread-safe)
-static GLOBAL_I18N: OnceLock<Arc<Mutex<I18nManager>>> = OnceLock::new();
+thread_local! {
+    static GLOBAL_I18N: std::cell::RefCell<Option<I18nManager>> = std::cell::RefCell::new(None);
+}
 
 /// Initialise l'instance globale I18n
 pub fn init_global_i18n() -> Result<()> {
     let manager = I18nManager::new()?;
-    GLOBAL_I18N.set(Arc::new(Mutex::new(manager)))
-        .map_err(|_| anyhow::anyhow!("I18n déjà initialisé"))?;
+    GLOBAL_I18N.with(|i18n| {
+        *i18n.borrow_mut() = Some(manager);
+    });
     Ok(())
 }
 
 /// Fonctions utilitaires globales
-#[allow(dead_code)]
-pub fn get_i18n() -> Option<Arc<Mutex<I18nManager>>> {
-    GLOBAL_I18N.get().cloned()
-}
-
 pub fn translate(key: &str) -> String {
-    if let Some(i18n) = GLOBAL_I18N.get() {
-        if let Ok(manager) = i18n.lock() {
-            return manager.t(key);
+    GLOBAL_I18N.with(|i18n| {
+        if let Some(manager) = i18n.borrow().as_ref() {
+            manager.t(key)
+        } else {
+            // Fallback : créer un gestionnaire temporaire
+            match I18nManager::new() {
+                Ok(temp_manager) => temp_manager.t(key),
+                Err(_) => format!("[{}]", key)
+            }
         }
-    }
-    format!("[{}]", key) // Fallback si I18n n'est pas initialisé
+    })
 }
 
 #[allow(dead_code)]
@@ -353,23 +466,24 @@ pub fn translate_with_args(key: &str, _args: &HashMap<String, String>) -> String
 
 #[allow(dead_code)]
 pub fn set_global_language(language: SupportedLanguage) -> Result<()> {
-    if let Some(i18n) = GLOBAL_I18N.get() {
-        let mut manager = i18n.lock().unwrap();
-        manager.set_language(language)?;
-        Ok(())
-    } else {
-        Err(anyhow::anyhow!("I18n non initialisé"))
-    }
+    GLOBAL_I18N.with(|i18n| {
+        if let Some(manager) = i18n.borrow_mut().as_mut() {
+            manager.set_language(language)
+        } else {
+            Err(anyhow::anyhow!("I18n non initialisé"))
+        }
+    })
 }
 
 #[allow(dead_code)]
 pub fn get_current_language() -> SupportedLanguage {
-    if let Some(i18n) = GLOBAL_I18N.get() {
-        if let Ok(manager) = i18n.lock() {
-            return manager.current_language().clone();
+    GLOBAL_I18N.with(|i18n| {
+        if let Some(manager) = i18n.borrow().as_ref() {
+            manager.current_language().clone()
+        } else {
+            SupportedLanguage::French // Fallback par défaut
         }
-    }
-    SupportedLanguage::French // Fallback par défaut
+    })
 }
 
 /// Macro pour simplifier les traductions

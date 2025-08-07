@@ -1,0 +1,25 @@
+[Unit]
+Description=CachyPac - Gestionnaire de mises à jour Pacman (Development)
+Documentation=https://github.com/leyoda/CachyPac
+After=network.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=lionel
+Group=lionel
+ExecStart=/home/lionel/Devels/Rust/CachyPac/target/release/cachypac --daemon
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=10
+TimeoutStopSec=30
+
+# Répertoires de travail
+WorkingDirectory=/home/lionel/Devels/Rust/CachyPac
+
+# Variables d'environnement
+Environment=RUST_LOG=cachypac=info
+Environment=CACHYPAC_CONFIG_DIR=/home/lionel/Devels/Rust/CachyPac
+
+[Install]
+WantedBy=multi-user.target

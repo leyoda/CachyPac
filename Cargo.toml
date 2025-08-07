@@ -14,6 +14,10 @@ path = "examples/simple_intelligence.rs"
 name = "telegram_diagnostic"
 path = "examples/telegram_diagnostic.rs"
 
+[[example]]
+name = "test_i18n_fluent"
+path = "examples/test_i18n_fluent.rs"
+
 [dependencies]
 # CLI
 clap = { version = "4.0", features = ["derive"] }
@@ -55,6 +59,9 @@ num_cpus = "1.16"
 
 # Internationalisation
 sys-locale = "0.3"
+fluent = "0.16"
+fluent-bundle = "0.15"
+unic-langid = "0.9"
 
 # Sécurité et chiffrement
 ring = "0.17"

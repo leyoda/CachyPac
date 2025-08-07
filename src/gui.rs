@@ -10,7 +10,7 @@ use crate::{
     config::Config,
     pacman::PacmanManager,
     scheduler::SchedulerManager,
-    telegram::TelegramNotifier,
+    telegram_robust::{RobustTelegramNotifier, TelegramConfig},
     history::UpdateHistory,
     logs::LogManager,
     i18n::translate,
@@ -84,7 +84,7 @@ pub struct CachyPacApp {
     pacman_manager: PacmanManager,
     #[allow(dead_code)]
     scheduler_manager: SchedulerManager,
-    telegram_notifier: Option<TelegramNotifier>,
+    telegram_notifier: Option<RobustTelegramNotifier>,
     update_history: UpdateHistory,
     log_manager: LogManager,
 }
@@ -105,8 +105,27 @@ impl Application for CachyPacApp {
 
         let pacman_manager = PacmanManager::new(config.pacman.clone());
         let scheduler_manager = SchedulerManager::new();
+        
+        // Utilisation du module Telegram robuste
         let telegram_notifier = if config.telegram.enabled && !config.telegram.bot_token.is_empty() {
-            Some(TelegramNotifier::new(config.telegram.bot_token.clone(), config.telegram.chat_id.clone()))
+            match TelegramConfig::new(config.telegram.bot_token.clone(), config.telegram.chat_id.clone()) {
+                Ok(telegram_config) => {
+                    match RobustTelegramNotifier::new(telegram_config) {
+                        Ok(notifier) => {
+                            info!("✅ Module Telegram robuste initialisé dans l'interface");
+                            Some(notifier)
+                        }
+                        Err(e) => {
+                            error!("❌ Erreur création notificateur Telegram robuste: {}", e);
+                            None
+                        }
+                    }
+                }
+                Err(e) => {
+                    error!("❌ Configuration Telegram invalide: {}", e);
+                    None
+                }
+            }
         } else {
             None
         };
@@ -214,7 +233,11 @@ impl Application for CachyPacApp {
                 Command::none()
             }
             Message::ConfigChanged(key, value) => {
-                self.config_inputs.insert(key, value);
+                if key == "status" {
+                    self.status_message = value;
+                } else {
+                    self.config_inputs.insert(key, value);
+                }
                 Command::none()
             }
             Message::SaveConfig => {
@@ -237,9 +260,47 @@ impl Application for CachyPacApp {
                     self.config.telegram.chat_id = chat_id.clone();
                 }
 
-                self.status_message = "Configuration sauvegardée".to_string();
-                info!("💾 Configuration sauvegardée");
-                Command::none()
+                // Recréer le notificateur Telegram avec la nouvelle configuration
+                self.telegram_notifier = if self.config.telegram.enabled && !self.config.telegram.bot_token.is_empty() {
+                    match crate::telegram_robust::TelegramConfig::new(self.config.telegram.bot_token.clone(), self.config.telegram.chat_id.clone()) {
+                        Ok(telegram_config) => {
+                            match crate::telegram_robust::RobustTelegramNotifier::new(telegram_config) {
+                                Ok(notifier) => {
+                                    info!("✅ Notificateur Telegram recréé avec nouvelle configuration");
+                                    Some(notifier)
+                                }
+                                Err(e) => {
+                                    error!("❌ Erreur création notificateur Telegram: {}", e);
+                                    None
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            error!("❌ Configuration Telegram invalide: {}", e);
+                            None
+                        }
+                    }
+                } else {
+                    None
+                };
+
+                // Sauvegarder la configuration sur disque
+                let config_clone = self.config.clone();
+                Command::perform(
+                    async move {
+                        config_clone.save().await
+                    },
+                    |result| match result {
+                        Ok(()) => {
+                            info!("💾 Configuration sauvegardée sur disque");
+                            Message::ConfigChanged("status".to_string(), "Configuration sauvegardée et Telegram mis à jour".to_string())
+                        }
+                        Err(e) => {
+                            error!("❌ Erreur sauvegarde configuration: {}", e);
+                            Message::ConfigChanged("status".to_string(), format!("Erreur sauvegarde: {}", e))
+                        }
+                    }
+                )
             }
             Message::LoadHistory => {
                 let mut history = self.update_history.clone();
@@ -276,11 +337,27 @@ impl Application for CachyPacApp {
                 Command::none()
             }
             Message::TestTelegram => {
-                if let Some(notifier) = &self.telegram_notifier {
-                    let notifier = notifier.clone();
+                if self.telegram_notifier.is_some() {
+                    // Créer un nouveau notificateur pour le test async
+                    let config = self.config.telegram.clone();
                     Command::perform(
-                        async move { notifier.test_connection().await },
-                        |result| Message::TelegramTested(result.map_err(|e| e.to_string())),
+                        async move {
+                            match TelegramConfig::new(config.bot_token, config.chat_id) {
+                                Ok(telegram_config) => {
+                                    match RobustTelegramNotifier::new(telegram_config) {
+                                        Ok(mut notifier) => {
+                                            // Envoyer un vrai message de test avec le module robuste
+                                            let test_message = "🔍 Test CachyPac - Notifications Telegram fonctionnelles!";
+                                            notifier.send_message_with_retry(test_message).await
+                                                .map_err(|e| e.to_string())
+                                        }
+                                        Err(e) => Err(format!("Erreur création notificateur: {}", e))
+                                    }
+                                }
+                                Err(e) => Err(format!("Configuration invalide: {}", e))
+                            }
+                        },
+                        |result| Message::TelegramTested(result),
                     )
                 } else {
                     // Diagnostic détaillé du problème
@@ -300,44 +377,85 @@ impl Application for CachyPacApp {
                 }
             }
             Message::DiagnosticTelegram => {
-                // Diagnostic basique avec l'ancien module
-                if self.config.telegram.enabled && !self.config.telegram.bot_token.is_empty() && !self.config.telegram.chat_id.is_empty() {
+                // Diagnostic complet avec le module robuste
+                if self.telegram_notifier.is_some() {
+                    let config = self.config.telegram.clone();
+                    Command::perform(
+                        async move {
+                            // Créer un nouveau notificateur pour le diagnostic
+                            match TelegramConfig::new(config.bot_token, config.chat_id) {
+                                Ok(telegram_config) => {
+                                    match RobustTelegramNotifier::new(telegram_config) {
+                                        Ok(notifier) => {
+                                            match notifier.run_diagnostics().await {
+                                Ok(report) => {
+                                    let mut diagnostics = Vec::new();
+                                    
+                                    // Afficher les résultats des tests
+                                    for (test_name, result) in &report.tests {
+                                        let status = match result {
+                                            crate::telegram_robust::TestResult::Success(msg) =>
+                                                format!("✅ {}: {}", test_name, msg),
+                                            crate::telegram_robust::TestResult::Warning(msg) =>
+                                                format!("⚠️ {}: {}", test_name, msg),
+                                            crate::telegram_robust::TestResult::Failure(msg) =>
+                                                format!("❌ {}: {}", test_name, msg),
+                                        };
+                                        diagnostics.push(status);
+                                    }
+                                    
+                                    // Ajouter le statut global
+                                    let overall = format!("\n📊 Statut global: {:?}", report.overall_status);
+                                    diagnostics.push(overall);
+                                    
+                                    // Ajouter les recommandations
+                                    if !report.recommendations.is_empty() {
+                                        diagnostics.push("\n💡 Recommandations:".to_string());
+                                        for rec in &report.recommendations {
+                                            diagnostics.push(format!("  • {}", rec));
+                                        }
+                                    }
+                                    
+                                    Ok(format!("🔍 Diagnostic Telegram CachyPac (Module Robuste):\n\n{}",
+                                        diagnostics.join("\n")))
+                                            }
+                                            Err(e) => Err(format!("Erreur diagnostic: {}", e))
+                                        }
+                                    }
+                                    Err(e) => Err(format!("Erreur création notificateur: {}", e))
+                                }
+                            }
+                            Err(e) => Err(format!("Configuration invalide: {}", e))
+                        }
+                        },
+                        Message::TelegramDiagnosticCompleted,
+                    )
+                } else {
+                    // Si pas de notificateur, faire un diagnostic basique de configuration
                     let config = self.config.telegram.clone();
                     Command::perform(
                         async move {
                             let mut diagnostics = Vec::new();
                             
-                            // Test 1: Validation du token
-                            if config.bot_token.len() < 45 || !config.bot_token.contains(':') {
+                            if !config.enabled {
+                                diagnostics.push("❌ Telegram désactivé dans la configuration");
+                            }
+                            if config.bot_token.is_empty() {
+                                diagnostics.push("❌ Token Telegram manquant");
+                            } else if config.bot_token.len() < 45 || !config.bot_token.contains(':') {
                                 diagnostics.push("❌ Format du token invalide");
-                            } else {
-                                diagnostics.push("✅ Format du token valide");
+                            }
+                            if config.chat_id.is_empty() {
+                                diagnostics.push("❌ Chat ID Telegram manquant");
                             }
                             
-                            // Test 2: Validation du chat_id
-                            if config.chat_id.parse::<i64>().is_ok() || config.chat_id.starts_with('@') {
-                                diagnostics.push("✅ Format du chat_id valide");
-                            } else {
-                                diagnostics.push("❌ Format du chat_id invalide");
-                            }
-                            
-                            // Test 3: Configuration générale
-                            if config.enabled {
-                                diagnostics.push("✅ Telegram activé");
-                            } else {
-                                diagnostics.push("❌ Telegram désactivé");
-                            }
-                            
-                            let result = format!("🔍 Diagnostic Telegram CachyPac:\n\n{}\n\n💡 Pour un diagnostic complet, utilisez: cargo run --example telegram_diagnostic",
+                            let result = format!("🔍 Diagnostic Configuration Telegram:\n\n{}\n\n💡 Configurez Telegram dans les paramètres puis relancez l'application",
                                 diagnostics.join("\n"));
                             
                             Ok(result)
                         },
                         Message::TelegramDiagnosticCompleted,
                     )
-                } else {
-                    self.status_message = "❌ Configuration Telegram incomplète pour le diagnostic".to_string();
-                    Command::none()
                 }
             }
             Message::TelegramTested(result) => {

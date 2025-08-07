@@ -17,6 +17,7 @@ mod gui;
 mod pacman;
 mod scheduler;
 mod telegram;
+mod telegram_robust;
 mod history;
 mod logs;
 mod service;
@@ -25,7 +26,7 @@ mod i18n;
 use config::Config;
 use pacman::PacmanManager;
 use scheduler::SchedulerManager;
-use telegram::TelegramNotifier;
+use telegram_robust::{RobustTelegramNotifier, TelegramConfig};
 use history::UpdateHistory;
 use logs::LogManager;
 use service::ServiceManager;
@@ -135,9 +136,29 @@ async fn run_daemon_mode(config: Config) -> Result<()> {
     // Initialisation des composants
     let pacman_manager = PacmanManager::new(config.pacman.clone());
     let mut scheduler_manager = SchedulerManager::new();
+    
+    // Utilisation du module Telegram robuste avec vraies requêtes HTTP
     let mut telegram_notifier = if config.telegram.enabled {
-        Some(TelegramNotifier::new(config.telegram.bot_token.clone(), config.telegram.chat_id.clone()))
+        match TelegramConfig::new(config.telegram.bot_token.clone(), config.telegram.chat_id.clone()) {
+            Ok(telegram_config) => {
+                match RobustTelegramNotifier::new(telegram_config) {
+                    Ok(notifier) => {
+                        info!("✅ Module Telegram robuste initialisé avec succès");
+                        Some(notifier)
+                    }
+                    Err(e) => {
+                        error!("❌ Erreur création notificateur Telegram robuste: {}", e);
+                        None
+                    }
+                }
+            }
+            Err(e) => {
+                error!("❌ Configuration Telegram invalide: {}", e);
+                None
+            }
+        }
     } else {
+        info!("ℹ️ Telegram désactivé dans la configuration");
         None
     };
     
@@ -167,8 +188,21 @@ async fn run_daemon_mode(config: Config) -> Result<()> {
                     info!("🔄 {} mises à jour disponibles", updates.len());
                     
                     if let Some(ref mut notifier) = telegram_notifier {
-                        if let Err(e) = notifier.send_updates_available(&updates).await {
-                            error!("❌ Erreur notification Telegram: {}", e);
+                        // Formater le message pour les mises à jour disponibles
+                        let message = format!(
+                            "🔄 <b>CachyPac - {} mises à jour disponibles</b>\n\n{}",
+                            updates.len(),
+                            updates.iter().take(10).enumerate()
+                                .map(|(i, pkg)| format!("{}. <code>{}</code>", i + 1, pkg))
+                                .collect::<Vec<_>>()
+                                .join("\n")
+                        );
+                        
+                        // Utiliser le module robuste avec retry automatique
+                        if let Err(e) = notifier.send_message_with_retry(&message).await {
+                            error!("❌ Erreur notification Telegram (après retry): {}", e);
+                        } else {
+                            info!("✅ Notification Telegram envoyée avec succès");
                         }
                     }
                     

@@ -158,6 +158,37 @@ impl Config {
         Ok(config)
     }
 
+    /// Sauvegarde la configuration dans un fichier
+    pub async fn save_to_file(&self, path: &PathBuf) -> Result<()> {
+        debug!("💾 Sauvegarde de la configuration vers: {:?}", path);
+        
+        // Créer le répertoire parent si nécessaire
+        if let Some(parent) = path.parent() {
+            if !parent.exists() {
+                fs::create_dir_all(parent).await
+                    .context(format!("Impossible de créer le répertoire: {:?}", parent))?;
+            }
+        }
+        
+        let content = toml::to_string_pretty(self)
+            .context("Erreur lors de la sérialisation TOML")?;
+        
+        fs::write(path, content).await
+            .context(format!("Impossible d'écrire le fichier de configuration: {:?}", path))?;
+        
+        // Invalider le cache après sauvegarde
+        Self::invalidate_cache();
+        
+        info!("✅ Configuration sauvegardée avec succès vers: {:?}", path);
+        Ok(())
+    }
+
+    /// Sauvegarde la configuration dans le fichier par défaut
+    pub async fn save(&self) -> Result<()> {
+        let config_path = PathBuf::from("config.toml");
+        self.save_to_file(&config_path).await
+    }
+
     /// Invalide le cache de configuration
     #[allow(dead_code)]
     pub fn invalidate_cache() {

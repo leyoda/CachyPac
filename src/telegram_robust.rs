@@ -28,12 +28,6 @@ pub enum TelegramError {
     RateLimit(u64),
     #[error("API Telegram erreur: {0}")]
     ApiError(String),
-    #[error("Timeout de connexion")]
-    Timeout,
-    #[error("Configuration invalide: {0}")]
-    InvalidConfig(String),
-    #[error("Webhook erreur: {0}")]
-    WebhookError(String),
 }
 
 /// Configuration Telegram
@@ -43,7 +37,6 @@ pub struct TelegramConfig {
     pub chat_id: String,
     pub api_base_url: String,
     pub timeout_seconds: u64,
-    pub max_retries: u32,
     pub rate_limit_per_second: u32,
     pub rate_limit_per_minute: u32,
 }
@@ -57,7 +50,6 @@ impl TelegramConfig {
             chat_id,
             api_base_url: "https://api.telegram.org".to_string(),
             timeout_seconds: 30,
-            max_retries: 3,
             rate_limit_per_second: 30,
             rate_limit_per_minute: 20,
         })
@@ -120,11 +112,16 @@ impl TelegramConfig {
 #[derive(Debug, Deserialize)]
 pub struct BotInfo {
     pub id: i64,
-    pub is_bot: bool,
     pub first_name: String,
+    #[allow(dead_code)]
+    pub is_bot: bool,
+    #[allow(dead_code)]
     pub username: Option<String>,
+    #[allow(dead_code)]
     pub can_join_groups: Option<bool>,
+    #[allow(dead_code)]
     pub can_read_all_group_messages: Option<bool>,
+    #[allow(dead_code)]
     pub supports_inline_queries: Option<bool>,
 }
 
@@ -134,6 +131,7 @@ pub struct TelegramApiResponse<T> {
     pub ok: bool,
     pub result: Option<T>,
     pub description: Option<String>,
+    #[allow(dead_code)]
     pub error_code: Option<i32>,
 }
 
@@ -327,6 +325,7 @@ pub struct TelegramMetrics {
     pub successful_messages: u64,
     pub failed_messages: u64,
     pub average_response_time: Duration,
+    #[allow(dead_code)]
     pub last_error: Option<String>,
     pub rate_limit_hits: u64,
     pub retry_attempts: u64,
@@ -613,11 +612,13 @@ impl RobustTelegramNotifier {
     }
 
     /// Récupère les métriques actuelles
+    #[allow(dead_code)]
     pub fn get_metrics(&self) -> &TelegramMetrics {
         &self.metrics
     }
 
     /// Récupère l'historique des messages
+    #[allow(dead_code)]
     pub fn get_message_history(&self) -> &[MessageInfo] {
         &self.message_history
     }
@@ -629,6 +630,7 @@ pub struct DiagnosticReport {
     pub tests: Vec<(String, TestResult)>,
     pub overall_status: OverallStatus,
     pub recommendations: Vec<String>,
+    #[allow(dead_code)]
     pub timestamp: chrono::DateTime<chrono::Local>,
 }
 

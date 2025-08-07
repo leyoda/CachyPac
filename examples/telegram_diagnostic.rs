@@ -8,7 +8,7 @@
 
 use cachypac::telegram_robust::*;
 use std::env;
-use tracing::{info, warn, error};
+use tracing::{info, error};
 use tracing_subscriber;
 
 #[tokio::main]
@@ -135,13 +135,16 @@ fn print_diagnostic_report(report: &DiagnosticReport) {
 }
 
 fn test_message_validation() {
+    let long_message = "CachyPac ".repeat(100);
+    let too_long_message = "A".repeat(5000);
+    
     let test_cases = vec![
         ("Message simple", "Bonjour CachyPac!"),
         ("Message avec HTML", "<b>CachyPac</b> - <i>Mise à jour</i> disponible"),
         ("Message avec émojis", "🚀 CachyPac 🎉 Mise à jour terminée!"),
         ("Message avec caractères spéciaux", "Mise à jour: firefox & chromium < 100MB"),
-        ("Message long", &"CachyPac ".repeat(100)),
-        ("Message trop long", &"A".repeat(5000)),
+        ("Message long", long_message.as_str()),
+        ("Message trop long", too_long_message.as_str()),
         ("Message vide", ""),
     ];
 
@@ -209,7 +212,7 @@ async fn test_real_message_sending(notifier: &mut RobustTelegramNotifier) {
     }
 }
 
-async fn test_simulated_message_sending(notifier: &mut RobustTelegramNotifier) {
+async fn test_simulated_message_sending(_notifier: &mut RobustTelegramNotifier) {
     println!("  🎭 Simulation d'envoi de messages...");
     
     // Simuler différents types de messages
@@ -223,12 +226,8 @@ async fn test_simulated_message_sending(notifier: &mut RobustTelegramNotifier) {
     for (i, message) in messages.iter().enumerate() {
         println!("    📝 Message {}: {}", i + 1, message);
         
-        // Simuler l'enregistrement du message
-        notifier.record_message_success(
-            message,
-            std::time::Duration::from_millis(150 + i as u64 * 50),
-            0
-        );
+        // Note: record_message_success est privée, on simule juste l'affichage
+        println!("    ⏱️  Temps de réponse simulé: {}ms", 150 + i as u64 * 50);
         
         println!("    ✅ Message {} simulé avec succès", i + 1);
     }
